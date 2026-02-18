@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum DeliveryStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  RETRYING
+}
+
+model Event {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventType   String
+  payload     Json
+  occurredAt  DateTime  @default(now()) @db.Timestamp(6)
+
+  deliveries  Delivery[]
+
+  @@map("events")
+}
+
+model WebhookEndpoint {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  url           String
+  secret        String
+
+  enabled       Boolean  @default(true)
+  isVerified    Boolean  @default(false)
+
+  failureCount  Int      @default(0)
+
+  createdAt     DateTime @default(now()) @db.Timestamp(6)
+  lastFailureAt DateTime? @db.Timestamp(6)
+  verifiedAt    DateTime? @db.Timestamp(6)
+
+  deliveries    Delivery[]
+  subscriptions EndpointSubscription[]
+
+  @@map("webhook_endpoints")
+}
+
+model EndpointSubscription {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  endpointId  String   @db.Uuid
+  eventType   String
+
+  endpoint    WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@unique([endpointId, eventType])
+  @@map("endpoint_subscriptions")
+}
+
+model Delivery {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  endpointId      String          @db.Uuid
+  eventId         String          @db.Uuid
+
+  status          DeliveryStatus  @default(PENDING)
+
+  attemptCount    Int             @default(0)
+  nextRetryAt     DateTime?       @db.Timestamp(6)
+  lastAttemptAt   DateTime?       @db.Timestamp(6)
+
+  responseCode    Int?
+  responseBody    String?
+
+  createdAt       DateTime        @default(now()) @db.Timestamp(6)
+
+  endpoint        WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  event           Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, endpointId])
+
+  @@map("deliveries")
+}
