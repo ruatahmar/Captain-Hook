@@ -1,18 +1,9 @@
 import { Queue } from 'bullmq';
 
-// import { getRedis } from '../infra/redis';
-// import type { Redis } from 'ioredis';
-
-// let redisConnection: Redis | null = null
 let deliveryQueue: Queue | null = null
 let endpointVerificationQueue: Queue | null = null
 let scheduleDeliveriesQueue: Queue | null = null
-// function getConnection() {
-//     if (!redisConnection) {
-//         redisConnection = getRedis()
-//     }
-//     return redisConnection;
-// }
+
 export const connection = {
     host: process.env.REDIS_HOST,
     port: Number(process.env.REDIS_PORT),

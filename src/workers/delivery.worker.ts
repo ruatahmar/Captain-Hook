@@ -8,7 +8,7 @@ export function startDeliveryWorker() {
     const deliveryWorker = new Worker(
         'delivery-worker',
         async (job) => {
-            const { endpointId, eventId, payload, url, secret, event, endpoint, } = job.data
+            const { endpointId, eventId, payload, url, secret } = job.data
 
             try {
                 const signature = generateHmac(secret, JSON.stringify(payload));
@@ -42,7 +42,13 @@ export function startDeliveryWorker() {
                     data: {
                         status,
                         responseCode: res.status,
-                        responseBody
+                        responseBody,
+                        attemptCount: {
+                            increment: 1
+                        }
+                    },
+                    select: {
+                        attemptCount: true
                     }
                 })
                 if (!res.ok && res.status >= 500) throw new Error(`Server error: ${res.status}`)

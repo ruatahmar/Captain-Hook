@@ -46,7 +46,7 @@ export const triggerEvent = asyncHandler(async (req: Request, res: Response) => 
 
     return res.status(202)
         .json(
-            new ApiResponse(202, {}, "Event Accepted")
+            new ApiResponse(202, { eventId: event.id }, "Event Accepted")
         )
 });
 
@@ -92,6 +92,7 @@ export const manualRetry = asyncHandler(async (req: Request, res: Response) => {
         )
 });
 
+//gets: 
 export const getDeliveriesByEvent = asyncHandler(async (req: Request, res: Response) => {
     const eventId = req.params.eventId as string;
     const deliveries = await prisma.delivery.findMany({
@@ -131,8 +132,16 @@ export const getDeliveriesByEndpoint = asyncHandler(async (req: Request, res: Re
 });
 
 export const getAllEndpoints = asyncHandler(async (req: Request, res: Response) => {
-    const endpoints = await prisma.webhookEndpoint.findMany()
-
+    const endpoints = await prisma.webhookEndpoint.findMany({
+        select: {
+            id: true,
+            url: true,
+            secret: true,
+            enabled: true,
+            isVerified: true,
+            createdAt: true
+        }
+    })
     return res.status(200)
         .json(
             new ApiResponse(200, endpoints, "Endpoints returned")
@@ -144,9 +153,17 @@ export const getSpecificEndpoint = asyncHandler(async (req: Request, res: Respon
     const endpoints = await prisma.webhookEndpoint.findUnique({
         where: {
             id: endpointId
+        },
+        select: {
+            id: true,
+            url: true,
+            secret: true,
+            enabled: true,
+            isVerified: true,
+            createdAt: true
         }
     })
-
+    if (!endpoints) throw new ApiError(404, "Not Found")
     return res.status(200)
         .json(
             new ApiResponse(200, endpoints, "Endpoints returned")

@@ -63,9 +63,9 @@ export function enqueueDeliveryQueue(deliveries: deliveryQueuePayload[]) {
             data: delivery,
             opts: {
                 jobId: `delivery-${delivery.eventId}-${delivery.endpointId}`,
-                attempts: 10,
+                attempts: 5,
                 backoff: {
-                    delay: 5000,
+                    delay: 30000,
                     type: "exponential"
                 },
                 removeOnComplete: true,

@@ -33,10 +33,7 @@ model WebhookEndpoint {
   enabled       Boolean  @default(true)
   isVerified    Boolean  @default(false)
 
-  failureCount  Int      @default(0)
-
   createdAt     DateTime @default(now()) @db.Timestamp(6)
-  lastFailureAt DateTime? @db.Timestamp(6)
   verifiedAt    DateTime? @db.Timestamp(6)
 
   deliveries    Delivery[]
