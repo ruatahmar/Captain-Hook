@@ -1,23 +1,32 @@
-import { getDeliveryQueue, getEndpointVerificationQueue } from "./queues";
+import { getScheduleDeliveriesQueue, getEndpointVerificationQueue, getDeliveryQueue } from "./queues";
 
 type endpointVerificationQueuePayload = {
-    id: string,
+    endpointId: string,
     url: string,
     secret: string,
     events: string[]
 }
 
-type deliveryQueuePayload = {
-    id: string,
-    eventType: string
+export type scheduleDeliveriesQueuePayload = {
+    eventId: string,
+    eventType: string,
+    payload: unknown,
 }
 
-export function enqueueDeliveryQueue(payload: deliveryQueuePayload) {
-    const queue = getDeliveryQueue();
-    queue.add('delivery',
+export type deliveryQueuePayload = {
+    endpointId: string,
+    eventId: string,
+    payload: any,
+    url: string,
+    secret: string
+}
+
+export function enqueueScheduleDeliveriesQueue(payload: scheduleDeliveriesQueuePayload) {
+    const queue = getScheduleDeliveriesQueue();
+    queue.add('schedule-deliveries',
         payload,
         {
-            jobId: `delivery-{}`,
+            jobId: `schedule-deliveries-${payload.eventId}`,
             attempts: 3,
             backoff: {
                 delay: 2000,
@@ -29,13 +38,12 @@ export function enqueueDeliveryQueue(payload: deliveryQueuePayload) {
     )
 }
 
-
 export function enqueueEndpointVerificationQueue(payload: endpointVerificationQueuePayload) {
     const queue = getEndpointVerificationQueue();
     queue.add('endpoint-verification',
         payload,
         {
-            jobId: `endpoint-verification-${payload.id}`,
+            jobId: `endpoint-verification-${payload.endpointId}`,
             attempts: 3,
             backoff: {
                 delay: 5000,
@@ -45,4 +53,24 @@ export function enqueueEndpointVerificationQueue(payload: endpointVerificationQu
             removeOnFail: false
         }
     )
+}
+
+export function enqueueDeliveryQueue(deliveries: deliveryQueuePayload[]) {
+    const queue = getDeliveryQueue();
+    const deliveriesBulk = deliveries.map(delivery => (
+        {
+            name: 'delivery',
+            data: delivery,
+            opts: {
+                jobId: `delivery-${delivery.eventId}-${delivery.endpointId}`,
+                attempts: 10,
+                backoff: {
+                    delay: 5000,
+                    type: "exponential"
+                },
+                removeOnComplete: true,
+                removeOnFail: false
+            }
+        }));
+    queue.addBulk(deliveriesBulk)
 }

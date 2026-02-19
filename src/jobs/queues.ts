@@ -6,25 +6,26 @@ import { Queue } from 'bullmq';
 // let redisConnection: Redis | null = null
 let deliveryQueue: Queue | null = null
 let endpointVerificationQueue: Queue | null = null
+let scheduleDeliveriesQueue: Queue | null = null
 // function getConnection() {
 //     if (!redisConnection) {
 //         redisConnection = getRedis()
 //     }
 //     return redisConnection;
 // }
-const connection = {
+export const connection = {
     host: process.env.REDIS_HOST,
     port: Number(process.env.REDIS_PORT),
 };
 
-export function getDeliveryQueue() {
-    if (!deliveryQueue) {
-        deliveryQueue = new Queue('deliveries', { connection });
-        deliveryQueue.on("error", (err) => {
-            console.error("Delivery queue error:", err.message);
+export function getScheduleDeliveriesQueue() {
+    if (!scheduleDeliveriesQueue) {
+        scheduleDeliveriesQueue = new Queue('schedule-deliveries', { connection });
+        scheduleDeliveriesQueue.on("error", (err) => {
+            console.error("Schedule deliveries queue error:", err.message);
         });
     }
-    return deliveryQueue;
+    return scheduleDeliveriesQueue;
 }
 
 export function getEndpointVerificationQueue() {
@@ -37,3 +38,12 @@ export function getEndpointVerificationQueue() {
     return endpointVerificationQueue;
 }
 
+export function getDeliveryQueue() {
+    if (!deliveryQueue) {
+        deliveryQueue = new Queue('delivery', { connection });
+        deliveryQueue.on("error", (err) => {
+            console.error("Delivery queue error:", err.message);
+        });
+    }
+    return deliveryQueue;
+}

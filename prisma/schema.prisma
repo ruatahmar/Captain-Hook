@@ -76,6 +76,5 @@ model Delivery {
   event           Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@unique([eventId, endpointId])
-
   @@map("deliveries")
 }

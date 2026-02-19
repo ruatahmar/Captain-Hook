@@ -3,17 +3,9 @@ import prisma from "../../infra/db";
 import ApiError from "../../utils/apiError";
 import ApiResponse from "../../utils/apiResponse";
 import asyncHandler from "../../utils/asyncHandler";
-
-import { z } from "zod";
-import { enqueueDeliveryQueue, enqueueEndpointVerificationQueue } from "../../jobs/jobs";
-
-const webhookSchema = z.object({
-    url: z.string().url(),
-    secret: z.string().min(1),
-    events: z.array(z.string().min(1)),
-});
-const eventParamsSchema = z.object({ eventType: z.string().min(1) });
-const eventSchema = z.object({ payload: z.any() })
+import { enqueueDeliveryQueue, enqueueEndpointVerificationQueue, enqueueScheduleDeliveriesQueue } from "../../jobs/jobs";
+import { DeliveryStatus } from "../../../generated/prisma/enums";
+import { webhookSchema, eventParamsSchema, eventSchema } from "./webhooks.schema";
 
 export const createSubscription = asyncHandler(async (req: Request, res: Response) => {
     const { url, secret, events } = webhookSchema.parse(req.body);
@@ -28,7 +20,7 @@ export const createSubscription = asyncHandler(async (req: Request, res: Respons
         }
     })
 
-    enqueueEndpointVerificationQueue({ id: endpoint.id, url, secret, events })
+    enqueueEndpointVerificationQueue({ endpointId: endpoint.id, url, secret, events })
 
     return res.status(202)
         .json(
@@ -50,7 +42,7 @@ export const triggerEvent = asyncHandler(async (req: Request, res: Response) => 
         }
     })
 
-    enqueueDeliveryQueue({ id: event.id, eventType })
+    enqueueScheduleDeliveriesQueue({ eventId: event.id, eventType, payload })
 
     return res.status(202)
         .json(
@@ -58,38 +50,105 @@ export const triggerEvent = asyncHandler(async (req: Request, res: Response) => 
         )
 });
 
+export const manualRetry = asyncHandler(async (req: Request, res: Response) => {
+    const deliveryId = req.params.deliveryId as string;
+    const delivery = await prisma.delivery.findFirst({
+        where: {
+            id: JSON.stringify(deliveryId),
+        },
+        include: {
+            event: {
+                select: {
+                    eventType: true,
+                    payload: true,
+                }
+            },
+            endpoint: {
+                select: {
+                    url: true,
+                    secret: true
+                }
+            }
 
+        }
+    }
+    )
+    if (!delivery) throw new ApiError(404, "Endpoint not found")
+    if (delivery.status === DeliveryStatus.SUCCESS) {
+        return res.status(400).json(new ApiResponse(400, {}, "Delivery already succeeded"))
+    }
 
+    const payload = [{
+        endpointId: delivery?.endpointId,
+        eventId: delivery?.eventId,
+        payload: delivery?.event.payload,
+        url: delivery?.endpoint.url,
+        secret: delivery?.endpoint.secret
+    }]
+    enqueueDeliveryQueue(payload)
+    return res.status(202)
+        .json(
+            new ApiResponse(202, {}, "Manual retry done")
+        )
+});
 
-// async function deliverWebhooks(event_type: string, payload: any) {
-//     try {
-//         const query = `
-//         SELECT * FROM webhook_endpoints
-//         WHERE event_type = $1 AND is_verified = TRUE AND enabled = TRUE
-//     `
-//         const subscribers = await pool.query(query, [event_type])
-//         if (!subscribers) return
+export const getDeliveriesByEvent = asyncHandler(async (req: Request, res: Response) => {
+    const eventId = req.params.eventId as string;
+    const deliveries = await prisma.delivery.findMany({
+        where: {
+            eventId: eventId,
+        },
+        select: {
+            endpointId: true,
+            status: true,
+            responseCode: true,
+            responseBody: true
+        }
+    })
+    return res.status(200)
+        .json(
+            new ApiResponse(200, deliveries, "Data fetched.")
+        )
+});
 
-//         await Promise.all(subscribers.rows.map(async (sub) => {
-//             try {
-//                 const hmac = "placeholder for now"
-//                 const res = await fetch(sub.url, {
-//                     method: "POST",
-//                     headers: { "Content-Type": "application/json" },
-//                     body: JSON.stringify({ payload, signature: hmac })
-//                 })
-//                 if (!res.ok) {
-//                     //check failure_count >=10
-//                 }
-//                 // update failure_count / disable after threshold
-//             } catch (err) {
-//                 console.error(`Failed delivery to ${sub.url}:`, err);
-//             }
-//         }));
-//         //parallel delivery to all subscribers
-//         //auto retry logic
-//         //Health monitoring and auto-disable after 10 failures
-//     } catch (error) {
-//         console.error(error)
-//     }
-// }
+export const getDeliveriesByEndpoint = asyncHandler(async (req: Request, res: Response) => {
+    const endpointId = req.params.endpointId as string;
+    const deliveries = await prisma.delivery.findMany({
+        where: {
+            endpointId: JSON.stringify(endpointId),
+        },
+        select: {
+            endpointId: true,
+            status: true,
+            responseCode: true,
+            responseBody: true
+        }
+    })
+    return res.status(200)
+        .json(
+            new ApiResponse(200, deliveries, "Data fetched.")
+        )
+});
+
+export const getAllEndpoints = asyncHandler(async (req: Request, res: Response) => {
+    const endpoints = await prisma.webhookEndpoint.findMany()
+
+    return res.status(200)
+        .json(
+            new ApiResponse(200, endpoints, "Endpoints returned")
+        )
+});
+
+export const getSpecificEndpoint = asyncHandler(async (req: Request, res: Response) => {
+    const endpointId = req.params.endpointId as string;
+    const endpoints = await prisma.webhookEndpoint.findUnique({
+        where: {
+            id: endpointId
+        }
+    })
+
+    return res.status(200)
+        .json(
+            new ApiResponse(200, endpoints, "Endpoints returned")
+        )
+});
