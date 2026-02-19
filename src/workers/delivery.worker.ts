@@ -3,6 +3,7 @@ import { connection } from "../jobs/queues";
 import { generateHmac } from "../modules/webhooks/webhooks.services";
 import prisma from "../infra/db";
 import { DeliveryStatus } from "../../generated/prisma/enums";
+import withTransaction from "../utils/transactionWrapper";
 
 export function startDeliveryWorker() {
     const deliveryWorker = new Worker(
@@ -32,7 +33,7 @@ export function startDeliveryWorker() {
                     status = DeliveryStatus.FAILED
                 }
 
-                await prisma.delivery.update({
+                const delivery = await prisma.delivery.update({
                     where: {
                         eventId_endpointId: {
                             eventId,
@@ -50,7 +51,10 @@ export function startDeliveryWorker() {
                     select: {
                         attemptCount: true
                     }
+
+
                 })
+
                 if (!res.ok && res.status >= 500) throw new Error(`Server error: ${res.status}`)
             } catch (error) {
                 //extra safe ,just incase of network failures 
@@ -81,8 +85,23 @@ export function startDeliveryWorker() {
         console.log("[delivery-worker] Completed :", job?.id)
     })
 
-    deliveryWorker.on("failed", (job, err) => {
-        console.error("[delivery-worker] Failed :", job?.id, err)
+    deliveryWorker.on("failed", async (job, err) => {
+        if (!job) return
+        console.error("[delivery-worker] Failed :", job.id, err)
+
+        // only mark FAILED when all attempts are exhausted
+        if (job.attemptsMade >= job.opts.attempts!) {
+            const { endpointId, eventId } = job.data
+            await prisma.delivery.update({
+                where: {
+                    eventId_endpointId: {
+                        eventId,
+                        endpointId
+                    }
+                },
+                data: { status: DeliveryStatus.FAILED }
+            })
+        }
     })
 
 

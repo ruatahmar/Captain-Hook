@@ -8,7 +8,6 @@ A scalable, reliable webhook delivery system built with TypeScript, Express, Pos
 
 - [Architecture, Retries & Signature Verification](docs/architecture.md)
 - [API Reference](docs/api.md)
-- [Personal Struggle](docs/process.md)
 
 ---
 

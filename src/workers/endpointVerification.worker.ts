@@ -44,7 +44,10 @@ export default function startEndpointVerificationWorker() {
 
                 await tx.webhookEndpoint.update({
                     where: { id: endpointId },
-                    data: { isVerified: true }
+                    data: {
+                        isVerified: true,
+                        verifiedAt: new Date(Date.now())
+                    }
                 })
                 await tx.endpointSubscriptions.createMany({
                     data: events.map((event: string) => ({

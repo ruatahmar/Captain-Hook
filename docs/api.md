@@ -141,13 +141,15 @@ Returns the delivery status for every endpoint that was targeted when this event
       "endpointId": "uuid",
       "status": "SUCCESS",
       "responseCode": 200,
-      "responseBody": "ok"
+      "responseBody": "ok",
+      "attemptCount": 2
     },
     {
       "endpointId": "uuid",
       "status": "FAILED",
       "responseCode": 500,
-      "responseBody": "Internal Server Error"
+      "responseBody": "Internal Server Error",
+      "attemptCount": 2
     }
   ]
 }

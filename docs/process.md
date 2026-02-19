@@ -1,32 +1,37 @@
-Challenges:
+#
 
-URL Verification: How do you validate that webhook URLs are legitimate?
+This doc functions as a scratchpad or a rough notebook for the building phase
 
-Security: Payloads need HMAC signatures to prevent tampering
+# Challenges:
 
-Reliability: What happens when a webhook endpoint is down?
+- URL Verification: How do you validate that webhook URLs are legitimate?
 
-Scale: How do you deliver to thousands of subscribers without blocking?
+- Security: Payloads need HMAC signatures to prevent tampering
 
-Monitoring: You need delivery stats, failure tracking, and auto-disabling of broken webhooks
+- Reliability: What happens when a webhook endpoint is down?
 
-Retry Logic: Exponential backoff, maximum attempts, timeout handling
+- Scale: How do you deliver to thousands of subscribers without blocking?
 
-created subscription endpoint:
+- Monitoring: You need delivery stats, failure tracking, and auto-disabling of broken webhooks
 
-- used async verification handler for faster and safety underconcurrency
+- Retry Logic: Exponential backoff, maximum attempts, timeout handling
 
-Using prisma for ORM but all querys are in raw sql to practice
+# Scale challenge
 
-- use cursor to make the fanout faster
+- in trigger event and create subscription endpoints, the heavy operations are made async with queues to make api responses faster
 
-new arch
+- using cursor to make the fanout (scheduleDeliveries) faster
 
-```
-api call ---> fanout worker ---> delivery worker
-```
+- new arch for trigger endpoint
 
-generate signature function
+  ```
+  api call ---> fanout worker ---> delivery worker
+  ```
+
+# auditing and reliability
+
+- everything is stored in postgres as events to track and see history
+- postgres is the single source of truth
 
 Pipeline:
 Event happens
@@ -36,4 +41,6 @@ Event happens
 → monitored
 → retried if needed
 
-After 5 failed attempts the delivery is marked `FAILED`.
+# endpoint verification
+
+- copied stripe style verification for endpoints

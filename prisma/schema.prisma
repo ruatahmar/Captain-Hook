@@ -61,7 +61,6 @@ model Delivery {
   status          DeliveryStatus  @default(PENDING)
 
   attemptCount    Int             @default(0)
-  nextRetryAt     DateTime?       @db.Timestamp(6)
   lastAttemptAt   DateTime?       @db.Timestamp(6)
 
   responseCode    Int?

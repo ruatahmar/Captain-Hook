@@ -103,7 +103,8 @@ export const getDeliveriesByEvent = asyncHandler(async (req: Request, res: Respo
             endpointId: true,
             status: true,
             responseCode: true,
-            responseBody: true
+            responseBody: true,
+            attemptCount: true
         }
     })
     return res.status(200)
@@ -122,7 +123,8 @@ export const getDeliveriesByEndpoint = asyncHandler(async (req: Request, res: Re
             endpointId: true,
             status: true,
             responseCode: true,
-            responseBody: true
+            responseBody: true,
+            attemptCount: true
         }
     })
     return res.status(200)
