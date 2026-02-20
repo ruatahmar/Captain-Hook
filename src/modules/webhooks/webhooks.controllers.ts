@@ -6,19 +6,33 @@ import asyncHandler from "../../utils/asyncHandler";
 import { enqueueDeliveryQueue, enqueueEndpointVerificationQueue, enqueueScheduleDeliveriesQueue } from "../../jobs/jobs";
 import { DeliveryStatus } from "../../../generated/prisma/enums";
 import { webhookSchema, eventParamsSchema, eventSchema } from "./webhooks.schema";
+import withTransaction from "../../utils/transactionWrapper";
 
 export const createSubscription = asyncHandler(async (req: Request, res: Response) => {
     const { url, secret, events } = webhookSchema.parse(req.body);
 
-    const endpoint = await prisma.webhookEndpoint.create({
-        data: {
-            url,
-            secret,
-        },
-        select: {
-            id: true
-        }
-    })
+    const endpoint = await withTransaction(async (tx) => {
+        //duplicate check 
+        const exists = await tx.webhookEndpoint.findFirst({
+            where: {
+                url
+            },
+            select: {
+                id: true
+            }
+        })
+        if (exists) return exists;
+        const endpoint = await tx.webhookEndpoint.create({
+            data: {
+                url,
+                secret,
+            },
+            select: {
+                id: true
+            }
+        })
+        return endpoint;
+    });
 
     enqueueEndpointVerificationQueue({ endpointId: endpoint.id, url, secret, events })
 
@@ -41,7 +55,7 @@ export const triggerEvent = asyncHandler(async (req: Request, res: Response) => 
             id: true
         }
     })
-
+    if (!event) throw new ApiError(400, "Error logging error")
     enqueueScheduleDeliveriesQueue({ eventId: event.id, eventType, payload })
 
     return res.status(202)
@@ -54,7 +68,7 @@ export const manualRetry = asyncHandler(async (req: Request, res: Response) => {
     const deliveryId = req.params.deliveryId as string;
     const delivery = await prisma.delivery.findFirst({
         where: {
-            id: JSON.stringify(deliveryId),
+            id: deliveryId,
         },
         include: {
             event: {
@@ -71,8 +85,7 @@ export const manualRetry = asyncHandler(async (req: Request, res: Response) => {
             }
 
         }
-    }
-    )
+    })
     if (!delivery) throw new ApiError(404, "Endpoint not found")
     if (delivery.status === DeliveryStatus.SUCCESS) {
         return res.status(400).json(new ApiResponse(400, {}, "Delivery already succeeded"))
@@ -100,6 +113,7 @@ export const getDeliveriesByEvent = asyncHandler(async (req: Request, res: Respo
             eventId: eventId,
         },
         select: {
+            id: true,
             endpointId: true,
             status: true,
             responseCode: true,
@@ -117,9 +131,10 @@ export const getDeliveriesByEndpoint = asyncHandler(async (req: Request, res: Re
     const endpointId = req.params.endpointId as string;
     const deliveries = await prisma.delivery.findMany({
         where: {
-            endpointId: JSON.stringify(endpointId),
+            endpointId: endpointId,
         },
         select: {
+            id: true,
             endpointId: true,
             status: true,
             responseCode: true,
@@ -169,5 +184,13 @@ export const getSpecificEndpoint = asyncHandler(async (req: Request, res: Respon
     return res.status(200)
         .json(
             new ApiResponse(200, endpoints, "Endpoints returned")
+        )
+});
+
+export const getAllEvents = asyncHandler(async (req: Request, res: Response) => {
+    const events = await prisma.event.findMany()
+    return res.status(200)
+        .json(
+            new ApiResponse(200, events, "Events returned")
         )
 });

@@ -44,3 +44,9 @@ Event happens
 # endpoint verification
 
 - copied stripe style verification for endpoints
+
+# fanout update
+
+- initial plan was to use a cursor and stream data from postgres
+- this cant be done anymore because even though postgres supports streams, primsa dosent
+- maybe use drizzle as orm for future projects

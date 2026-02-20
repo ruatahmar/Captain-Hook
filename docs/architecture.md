@@ -19,7 +19,7 @@
          ▼
 ┌───────────────────────────────────────┐
 │  Fanout Worker (BullMQ)               │
-│  Streams endpoints from Postgres      │
+│  Paginate endpoints from Postgres     │
 │  Bulk inserts delivery rows (Postgres)|
 │  Bulk enqueues delivery jobs (BullMQ) │
 └────────┬──────────────────────────────┘
@@ -59,17 +59,19 @@ The API never waits for delivery. It returns as soon as the job is durably enque
 
 ### 2. Fan-out Worker (scheduleDeliveriesWorker)
 
-The fanout worker streams matching active endpoints from Postgres using a cursor — it never loads all rows into memory at once. Every 500 endpoints it flushes a batch:
+The fanout worker queries matching active endpoints from Postgres in batches of 500 — it never loads all rows into memory at once. For each batch it flushes concurrently:
 
 ```
-for each batch of 500 endpoints (streamed):
+for each batch of 500 endpoints:
   Promise.all([
     BullMQ.addBulk(500 delivery jobs),     // enqueue to Redis
     Postgres.bulkInsert(500 delivery rows)  // audit with status PENDING
   ])
+
+  skip += 500 // fetch next batch
 ```
 
-Using `Promise.all` means the Redis and Postgres writes happen concurrently, not sequentially. Memory stays flat regardless of subscriber count.
+Using `Promise.all` means the Redis and Postgres writes happen concurrently, not sequentially. Memory stays bounded at ~500 rows regardless of subscriber count. True Postgres cursors are not available through Prisma, so batch pagination achieves the same memory profile.
 
 ### 3. Delivery Workers
 
@@ -145,18 +147,24 @@ function verifyWebhook(
   body: string,
   signature: string,
 ): boolean {
-  const expected = crypto.createHmac("sha256", secret);
-  expected.update(body);
-  expected.digest("hex");
+  const hmac = crypto.createHmac("sha256", secret);
+  hmac.update(body);
+  const expected = hmac.digest("hex");
 
   const expectedBuffer = Buffer.from(expected);
   const signatureBuffer = Buffer.from(signature);
 
+  if (expectedBuffer.length !== signatureBuffer.length) {
+    return false;
+  }
+
   return crypto.timingSafeEqual(expectedBuffer, signatureBuffer);
 }
 
-app.post("/webhook", (req, res) => {
+app.post("/webhooks", (req, res) => {
   const signature = req.headers["x-webhook-signature"] as string;
+  const { payload } = req.body;
+
   const isValid = verifyWebhook(
     YOUR_SECRET,
     JSON.stringify(req.body),
@@ -165,8 +173,8 @@ app.post("/webhook", (req, res) => {
 
   if (!isValid) return res.status(401).send("Invalid signature");
 
-  // process the webhook
-  res.status(200).send("ok");
+  console.log("Payload:", payload);
+  return res.sendStatus(200);
 });
 ```
 

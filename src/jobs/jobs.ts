@@ -36,6 +36,7 @@ export function enqueueScheduleDeliveriesQueue(payload: scheduleDeliveriesQueueP
             removeOnComplete: true,
         }
     )
+    console.log('[schedule-deliveries] Enqueued')
 }
 
 export function enqueueEndpointVerificationQueue(payload: endpointVerificationQueuePayload) {
@@ -53,6 +54,7 @@ export function enqueueEndpointVerificationQueue(payload: endpointVerificationQu
             removeOnFail: false
         }
     )
+    console.log('[endpoint-verification] Enqueued')
 }
 
 export function enqueueDeliveryQueue(deliveries: deliveryQueuePayload[]) {
@@ -62,7 +64,7 @@ export function enqueueDeliveryQueue(deliveries: deliveryQueuePayload[]) {
             name: 'delivery',
             data: delivery,
             opts: {
-                jobId: `delivery-${delivery.eventId}-${delivery.endpointId}`,
+                jobId: `delivery-${delivery.eventId}-${delivery.endpointId}-${Date.now()}`,
                 attempts: 5,
                 backoff: {
                     delay: 30000,
@@ -73,4 +75,5 @@ export function enqueueDeliveryQueue(deliveries: deliveryQueuePayload[]) {
             }
         }));
     queue.addBulk(deliveriesBulk)
+    console.log('[delivery] Enqueued')
 }

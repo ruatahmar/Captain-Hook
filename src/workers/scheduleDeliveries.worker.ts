@@ -2,66 +2,62 @@ import { Worker } from "bullmq";
 import withTransaction from "../utils/transactionWrapper";
 import { enqueueDeliveryQueue, type deliveryQueuePayload } from "../jobs/jobs";
 import { connection } from "../jobs/queues";
+import { Prisma } from "../../generated/prisma/client";
+
+type endpointSubscriptionPayload = Prisma.EndpointSubscriptionGetPayload<{
+    select: {
+        endpointId: true
+        endpoint: {
+            select: { url: true; secret: true }
+        }
+    }
+}>
 
 export default function startScheduleDeliveriesWorker() {
     const scheduleDeliveriesWorker = new Worker(
-        'schedule-deliveries-worker', async (job) => {
+        'schedule-deliveries', async (job) => {
             const { eventId, eventType, payload } = job.data;
             await withTransaction(async (tx) => {
-                const cursor = tx.endpointSubscriptions.findMany({
-                    where: {
-                        eventType,
-                        endpoint: {
-                            isVerified: true
-                        }
-                    },
-                    select: {
-                        endpointId: true,
-                        endpoint: {
-                            select: {
-                                url: true,
-                                secret: true
+                const BATCH_SIZE = 500
+                let skip = 0
+                while (true) {
+                    const endpoints = await tx.endpointSubscription.findMany({
+                        where: {
+                            eventType,
+                            endpoint: { isVerified: true }
+                        },
+                        select: {
+                            endpointId: true,
+                            endpoint: {
+                                select: { url: true, secret: true }
                             }
-                        }
-                    }
-                })
-                const deliveriesQueue: deliveryQueuePayload[] = []
-                const endpointIds: string[] = []
+                        },
+                        take: BATCH_SIZE,
+                        skip
+                    })
 
-                for await (let endpoint of cursor) {
-                    deliveriesQueue.push({
-                        endpointId: endpoint.endpointId,
+                    if (endpoints.length === 0) break
+
+                    const deliveriesQueue: deliveryQueuePayload[] = endpoints.map((e: endpointSubscriptionPayload) => ({
+                        endpointId: e.endpointId,
                         eventId,
                         payload,
-                        url: endpoint.endpoint.url,
-                        secret: endpoint.endpoint.secret
-                    });
-                    endpointIds.push(endpoint.endpointId);
+                        url: e.endpoint.url,
+                        secret: e.endpoint.secret
+                    }))
 
-                    //batch writes
-                    if (deliveriesQueue.length >= 500) {
-                        enqueueDeliveryQueue(deliveriesQueue)
-                        await tx.deliveries.createMany({
-                            data: endpointIds.map((endpoint: string) => ({
-                                eventId,
-                                endpointId: endpoint
-                            })),
+                    const endpointIds = endpoints.map((e: endpointSubscriptionPayload) => e.endpointId)
+
+                    await Promise.all([
+                        enqueueDeliveryQueue(deliveriesQueue),
+                        tx.delivery.createMany({
+                            data: endpointIds.map((id: string) => ({ eventId, endpointId: id })),
                             skipDuplicates: true
                         })
-                        deliveriesQueue.length = 0
-                        endpointIds.length = 0
-                    }
-                }
+                    ])
 
-                if (deliveriesQueue.length > 0) {
-                    enqueueDeliveryQueue(deliveriesQueue)
-                    await tx.deliveries.createMany({
-                        data: endpointIds.map((endpoint: string) => ({
-                            eventId,
-                            endpointId: endpoint
-                        })),
-                        skipDuplicates: true
-                    })
+                    skip += endpoints.length
+                    if (endpoints.length < BATCH_SIZE) break
                 }
 
             })

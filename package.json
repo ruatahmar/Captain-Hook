@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "test:subscriber": "npx tsx watch test/test_subscriber.ts",
     "build": "tsc",
     "start": "node dist/index.js"
   },
@@ -26,6 +27,7 @@
     "bullmq": "^5.69.3",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
+    "ioredis": "^5.9.3",
     "tsx": "^4.21.0",
     "zod": "^4.3.6"
   },

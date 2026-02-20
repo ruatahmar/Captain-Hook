@@ -1,16 +1,15 @@
-import { tryCatch, Worker } from "bullmq";
+import { Worker } from "bullmq";
 import { connection } from "../jobs/queues";
 import { generateHmac } from "../modules/webhooks/webhooks.services";
 import prisma from "../infra/db";
 import { DeliveryStatus } from "../../generated/prisma/enums";
-import withTransaction from "../utils/transactionWrapper";
 
 export function startDeliveryWorker() {
     const deliveryWorker = new Worker(
-        'delivery-worker',
+        'delivery',
         async (job) => {
             const { endpointId, eventId, payload, url, secret } = job.data
-
+            console.log(eventId)
             try {
                 const signature = generateHmac(secret, JSON.stringify(payload));
                 const res = await fetch(url, {
@@ -33,7 +32,7 @@ export function startDeliveryWorker() {
                     status = DeliveryStatus.FAILED
                 }
 
-                const delivery = await prisma.delivery.update({
+                await prisma.delivery.update({
                     where: {
                         eventId_endpointId: {
                             eventId,
