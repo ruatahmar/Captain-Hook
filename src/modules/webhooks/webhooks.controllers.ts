@@ -4,7 +4,7 @@ import ApiError from "../../utils/apiError";
 import ApiResponse from "../../utils/apiResponse";
 import asyncHandler from "../../utils/asyncHandler";
 import { enqueueDeliveryQueue, enqueueEndpointVerificationQueue, enqueueScheduleDeliveriesQueue } from "../../jobs/jobs";
-import { DeliveryStatus } from "../../../generated/prisma/enums";
+import { DeliveryStatus } from "../../../generated/prisma";
 import { webhookSchema, eventParamsSchema, eventSchema } from "./webhooks.schema";
 import withTransaction from "../../utils/transactionWrapper";
 
