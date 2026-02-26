@@ -28,7 +28,10 @@ app.get('/webhooks/endpoints/:endpointId', getSpecificEndpoint)
 //manually retry webhook with status != SUCCESS
 app.post('/webhooks/:deliveryId/retry', manualRetry)
 
-
+app.get('/', (req, res) => {
+    res.status(200).
+        json(new ApiResponse(200, { service: 'Captain Hook' }, "Webhook delivery system is live"))
+})
 
 //global error handler 
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
