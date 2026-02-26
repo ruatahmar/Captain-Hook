@@ -1,7 +1,7 @@
 import { Worker } from "bullmq";
 import { generateHmac } from "../modules/webhooks/webhooks.services";
 import prisma from "../infra/db";
-import { DeliveryStatus } from "../../generated/prisma/enums";
+import { DeliveryStatus } from "../../generated/prisma";
 import { getRedisConnection } from "../infra/redis";
 
 export function startDeliveryWorker() {
