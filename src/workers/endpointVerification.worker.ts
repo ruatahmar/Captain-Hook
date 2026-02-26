@@ -1,10 +1,10 @@
 import { Worker } from "bullmq";
 import { generateHmac } from "../modules/webhooks/webhooks.services";
 import withTransaction from "../utils/transactionWrapper";
-import { randomUUID } from "node:crypto";
-import { connection } from "../jobs/queues";
+import { getRedisConnection } from "../infra/redis";
 
 export default function startEndpointVerificationWorker() {
+    const connection = getRedisConnection()
     const endpointVerificationWorker = new Worker(
         `endpoint-verifications`,
         async (job) => {

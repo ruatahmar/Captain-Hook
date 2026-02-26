@@ -22,6 +22,7 @@
   },
   "homepage": "https://github.com/ruatahmar/Captain-Hook#readme",
   "dependencies": {
+    "@prisma/adapter-neon": "^7.4.1",
     "@prisma/client": "^7.4.0",
     "@tsconfig/node24": "^24.0.4",
     "bullmq": "^5.69.3",

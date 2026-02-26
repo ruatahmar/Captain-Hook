@@ -1,10 +1,11 @@
 import { Worker } from "bullmq";
-import { connection } from "../jobs/queues";
 import { generateHmac } from "../modules/webhooks/webhooks.services";
 import prisma from "../infra/db";
 import { DeliveryStatus } from "../../generated/prisma/enums";
+import { getRedisConnection } from "../infra/redis";
 
 export function startDeliveryWorker() {
+    const connection = getRedisConnection()
     const deliveryWorker = new Worker(
         'delivery',
         async (job) => {

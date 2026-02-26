@@ -1,24 +1,31 @@
-import Redis from 'ioredis'
+import IORedis from 'ioredis';
 import 'dotenv/config'
+import ApiError from '../utils/apiError'
+import type { ConnectionOptions } from 'bullmq'
+
+const REDIS_URL = process.env.REDIS_URL
+if (!REDIS_URL) throw new ApiError(400, "Provide Redis connection")
+
+let connection: IORedis | null = null
 
 export async function checkRedisConnection() {
-    const client = new Redis({
-        host: process.env.REDIS_HOST,
-        port: Number(process.env.REDIS_PORT),
-        maxRetriesPerRequest: 1,
-        connectTimeout: 10000,
-        lazyConnect: true,
-    })
-
+    if (!connection) connection = new IORedis(`${REDIS_URL}`);
     try {
-        await client.connect()
-        await client.ping()
+        await connection.ping()
         console.log('[redis] Connection verified')
     } catch (err) {
         console.error('[redis] Could not connect:', err)
         process.exit(1)
-    } finally {
-        //this is just for health check lol
-        await client.quit()
+    }
+    return connection;
+}
+
+export function getRedisConnection(): ConnectionOptions {
+    const url = new URL(REDIS_URL!)
+    return {
+        host: url.hostname,
+        port: Number(url.port),
+        password: url.password,
+        tls: {},
     }
 }

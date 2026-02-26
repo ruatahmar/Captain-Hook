@@ -1,8 +1,8 @@
 import { Worker } from "bullmq";
 import withTransaction from "../utils/transactionWrapper";
 import { enqueueDeliveryQueue, type deliveryQueuePayload } from "../jobs/jobs";
-import { connection } from "../jobs/queues";
 import { Prisma } from "../../generated/prisma/client";
+import { getRedisConnection } from "../infra/redis";
 
 type endpointSubscriptionPayload = Prisma.EndpointSubscriptionGetPayload<{
     select: {
@@ -14,6 +14,7 @@ type endpointSubscriptionPayload = Prisma.EndpointSubscriptionGetPayload<{
 }>
 
 export default function startScheduleDeliveriesWorker() {
+    const connection = getRedisConnection()
     const scheduleDeliveriesWorker = new Worker(
         'schedule-deliveries', async (job) => {
             const { eventId, eventType, payload } = job.data;
