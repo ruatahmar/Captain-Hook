@@ -8,6 +8,9 @@ RUN npm ci
 
 COPY . . 
 
+ENV DIRECT_URL="postgresql://placeholder:placeholder@placeholder/placeholder"
+ENV DATABASE_URL="postgresql://placeholder:placeholder@placeholder/placeholder"
+
 RUN npx prisma generate
 
 RUN npm run build
@@ -16,4 +19,4 @@ ENV PORT=8080
 
 EXPOSE 8080
 
-CMD [ "npm","start" ]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
